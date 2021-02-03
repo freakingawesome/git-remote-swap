@@ -2,7 +2,7 @@ name: Rust
 
 on:
   push:
-    branches: [ master, try-building-on-mac ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
