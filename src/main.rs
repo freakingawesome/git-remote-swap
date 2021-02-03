@@ -58,7 +58,7 @@ fn register_clap<'a>() -> clap::ArgMatches<'a> {
     App::new("git-remote-swap")
         .version("0.1")
         .author("Chad Gilbert <chad@freakingawesome.net>")
-        .about("Useful when you a large number of repositories have been migrated to a different remote. This scours your filesystem for repos with retired remotes and points them at the new URL.")
+        .about("Useful when you have a large number of repositories have been migrated to a different remote. This scours your filesystem for repos with retired remotes and points them at the new URL.")
         .arg(Arg::with_name("config_path")
             .short("c")
             .long("config")
