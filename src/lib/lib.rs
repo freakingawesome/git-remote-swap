@@ -196,7 +196,11 @@ mod tests {
         let tmp_dir = Builder::new()
             .prefix("git-remote-swap-testrun-")
             .tempdir()?;
-        run_test(tmp_dir.path().to_path_buf())?;
+        let temp_path = tmp_dir.path().to_path_buf();
+        let canonical = fs::canonicalize(temp_path)?;
+
+        run_test(canonical)?;
+
         tmp_dir.close()
     }
     fn make_git_repo(which: RepoType, at: &path::PathBuf) -> io::Result<()> {
