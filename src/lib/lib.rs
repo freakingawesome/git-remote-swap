@@ -17,7 +17,7 @@ pub fn visit_git_repos(root: &path::PathBuf) -> impl Iterator<Item = Repository>
         .filter_map(|repo| repo.ok())
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_imports)]
 mod tests {
     use super::*;
     use git2::Repository;
