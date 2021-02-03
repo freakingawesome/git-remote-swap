@@ -6,7 +6,7 @@ pub fn is_likely_git_repo(dir: &path::PathBuf) -> bool {
         || (dir.join("refs").is_dir() && dir.join("config").is_file())
 }
 
-pub fn walk_git_repos(root: &path::PathBuf) -> impl Iterator<Item=path::PathBuf> {
+pub fn visit_git_repos(root: &path::PathBuf) -> impl Iterator<Item=path::PathBuf> {
     WalkDir::new(root)
         .follow_links(true)
         .into_iter()
@@ -18,8 +18,8 @@ pub fn walk_git_repos(root: &path::PathBuf) -> impl Iterator<Item=path::PathBuf>
 #[allow(dead_code)]
 mod tests {
     use std::collections::HashSet;
-use std::collections::HashMap;
-use git2::Repository;
+    use std::collections::HashMap;
+    use git2::Repository;
     use super::*;
 
     use tempfile::Builder;
@@ -47,44 +47,20 @@ use git2::Repository;
     }
     
     #[test]
-    fn visit_sub_repos() {
+    fn test_visit_sub_repos() {
         with_temp_dir(|temp_path| {
-            // let mut repos: Vec<&str> = Vec::new();
-
             make_git_repo(RepoType::None, &temp_path.join("not_a_repo"))?;
             make_git_repo(RepoType::WorkDir, &temp_path.join("a_repo"))?;
             make_git_repo(RepoType::Bare, &temp_path.join("a_bare_repo"))?;
             make_git_repo(RepoType::WorkDir, &temp_path.join("a").join("deeply").join("nested").join("repo"))?;
             make_git_repo(RepoType::Bare, &temp_path.join("another").join("deeply").join("nested").join("bare_repo"))?;
-            
-            // for repo_path in walk_git_repos(temp_path).map(|p| String::from(p.as_path().to_str())) {
-            let walked: HashSet<String> = walk_git_repos(&temp_path).map(|p| p.into_os_string().into_string()).filter_map(|p| p.ok()).collect();
-            
-            // assert_eq!(walked.contains(&format!("{}/{}", &temp_path.display(), "not_a_repo")), true);
-            let temp_path_base: String = temp_path.into_os_string().into_string().unwrap();
 
-            // println!("DBG: {}", temp_path_base);
-            // for x in &walked {
-            //     println!("DBG2: {}", &x);
-            // }
-
-            assert_eq!(walked.contains(format!("{}/a_repo", &temp_path_base).as_str()), true);
-            assert_eq!(walked.contains(format!("{}/a_bare_repo", &temp_path_base).as_str()), true);
-            assert_eq!(walked.contains(format!("{}/a/deeply/nested/repo", &temp_path_base).as_str()), true);
-            assert_eq!(walked.contains(format!("{}/another/deeply/nested/bare_repo", &temp_path_base).as_str()), true);
-            assert_eq!(walked.len(), 4, "There exist more folders interpretted as repos than expected");
-
-            
-            // walked.filter
-            // walked.
-            // walked.remove_item(temp_path.join("not_a_repo").into_os_string().into_string());
-                /*
-            visit_git_repos(temp_path, move |p| {
-                let cloned_path: &str = p.to_str().unwrap().clone();
-                repos.push(&cloned_path);
-            })?;
-            */
-            //visit_git_repos(temp_path, |p: &path::PathBuf| {repos.push(Path::new(p.to_str()));});
+            let visited: HashSet<path::PathBuf> = visit_git_repos(&temp_path).collect();
+            assert_eq!(visited.contains(&temp_path.join("a_repo")), true);
+            assert_eq!(visited.contains(&temp_path.join("a_bare_repo")), true);
+            assert_eq!(visited.contains(&temp_path.join("a/deeply/nested/repo")), true);
+            assert_eq!(visited.contains(&temp_path.join("another/deeply/nested/bare_repo")), true);
+            assert_eq!(visited.len(), 4, "There exist more folders interpretted as repos than expected");
 
             Ok(())
         }).unwrap();
