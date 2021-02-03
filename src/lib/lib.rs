@@ -150,7 +150,15 @@ mod tests {
             let visited: HashSet<path::PathBuf> = visit_git_repos(&temp_path)
                 .map(|r| r.path().to_path_buf())
                 .collect();
-            let assert_path_visited = |p: &path::PathBuf| assert_eq!(visited.contains(p), true);
+            let assert_path_visited = |p: &path::PathBuf| {
+                assert_eq!(
+                    visited.contains(p),
+                    true,
+                    "Expected {:?} to be in list of visited: {:?}",
+                    p,
+                    visited
+                )
+            };
 
             assert_path_visited(&temp_path.join("a_repo").join(".git"));
             assert_path_visited(&temp_path.join("a_bare_repo"));
