@@ -148,7 +148,7 @@ mod tests {
             )?;
 
             let visited: HashSet<path::PathBuf> = visit_git_repos(&temp_path)
-                .map(|r| r.path().to_path_buf())
+                .map(|r| fs::canonicalize(r.path().to_path_buf()).unwrap())
                 .collect();
             let assert_path_visited = |p: &path::PathBuf| {
                 assert_eq!(
