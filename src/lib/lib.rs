@@ -1,24 +1,26 @@
 use std::{path, io};
 use walkdir::{WalkDir};
+use git2::Repository;
 
 pub fn is_likely_git_repo(dir: &path::PathBuf) -> bool {
-    dir.join(".git").is_dir()
+    dir.ends_with(".git")
         || (dir.join("refs").is_dir() && dir.join("config").is_file())
 }
 
-pub fn visit_git_repos(root: &path::PathBuf) -> impl Iterator<Item=path::PathBuf> {
+pub fn visit_git_repos(root: &path::PathBuf) -> impl Iterator<Item=Repository> {
     WalkDir::new(root)
         .follow_links(true)
         .into_iter()
         .filter_map(|dir| dir.ok())
         .map(|dir| dir.path().to_path_buf())
         .filter(|p| is_likely_git_repo(p))
+        .map(|p| Repository::open(p))
+        .filter_map(|repo| repo.ok())
 }
 
 #[allow(dead_code)]
 mod tests {
     use std::collections::HashSet;
-    use std::collections::HashMap;
     use git2::Repository;
     use super::*;
 
@@ -38,7 +40,12 @@ mod tests {
     
     #[test]
     fn test_is_likely_git_repo_workdir() {
-        test_is_likely_git_repo(RepoType::WorkDir, true)
+        with_temp_dir(|temp_path| {
+            let dir = temp_path.join("a_git_repo");
+            make_git_repo(RepoType::WorkDir, &dir)?;
+            assert_eq!(is_likely_git_repo(&dir.join(".git")), true);
+            Ok(())
+        }).unwrap();
     }
     
     #[test]
@@ -55,12 +62,16 @@ mod tests {
             make_git_repo(RepoType::WorkDir, &temp_path.join("a").join("deeply").join("nested").join("repo"))?;
             make_git_repo(RepoType::Bare, &temp_path.join("another").join("deeply").join("nested").join("bare_repo"))?;
 
-            let visited: HashSet<path::PathBuf> = visit_git_repos(&temp_path).collect();
-            assert_eq!(visited.contains(&temp_path.join("a_repo")), true);
-            assert_eq!(visited.contains(&temp_path.join("a_bare_repo")), true);
-            assert_eq!(visited.contains(&temp_path.join("a/deeply/nested/repo")), true);
-            assert_eq!(visited.contains(&temp_path.join("another/deeply/nested/bare_repo")), true);
-            assert_eq!(visited.len(), 4, "There exist more folders interpretted as repos than expected");
+            let visited: HashSet<path::PathBuf> = visit_git_repos(&temp_path).map(|r| r.path().to_path_buf()).collect();
+            
+            let assert_path_visited = |p: &path::PathBuf| assert_eq!(visited.contains(p), true);
+
+            assert_path_visited(&temp_path.join("a_repo").join(".git"));
+            assert_path_visited(&temp_path.join("a_bare_repo"));
+            assert_path_visited(&temp_path.join("a").join("deeply").join("nested").join("repo").join(".git"));
+            assert_path_visited(&temp_path.join("another").join("deeply").join("nested").join("bare_repo"));
+
+            assert_eq!(visited.len(), 4, "There exist more folders interpreted as repos than expected");
 
             Ok(())
         }).unwrap();
