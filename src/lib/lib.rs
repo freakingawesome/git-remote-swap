@@ -1,6 +1,28 @@
+use git2::Error;
 use git2::Repository;
+use std::collections::HashMap;
 use std::path;
 use walkdir::WalkDir;
+
+pub struct RemoteSwapConfig {
+    dry_run: bool,
+    root: path::PathBuf,
+    remote_mapping: HashMap<String, String>,
+}
+
+impl RemoteSwapConfig {
+    pub fn new(
+        dry_run: bool,
+        root: path::PathBuf,
+        remote_mapping: HashMap<String, String>,
+    ) -> Self {
+        Self {
+            dry_run: dry_run,
+            root: root,
+            remote_mapping: remote_mapping,
+        }
+    }
+}
 
 pub fn is_likely_git_repo(dir: &path::PathBuf) -> bool {
     dir.ends_with(".git") || (dir.join("refs").is_dir() && dir.join("config").is_file())
@@ -15,6 +37,56 @@ pub fn visit_git_repos(root: &path::PathBuf) -> impl Iterator<Item = Repository>
         .filter(|p| is_likely_git_repo(p))
         .map(|p| Repository::open(p))
         .filter_map(|repo| repo.ok())
+}
+
+pub fn run(config: RemoteSwapConfig) -> Result<(), Error> {
+    println!("=================================");
+    if config.dry_run {
+        println!("DRY RUN: No changes will be made.");
+    }
+    println!("Searching for git repos under: {:?}", config.root);
+    println!(
+        "Config file has {} remote replacements",
+        config.remote_mapping.len()
+    );
+    println!("=================================");
+
+    for repo in visit_git_repos(&config.root) {
+        println!("Found Repo: {:?}", repo.path());
+
+        let remotes = repo.remotes()?;
+
+        let swappable = remotes
+            .iter()
+            .filter_map(|name| name)
+            .filter_map(|name| {
+                repo.find_remote(name)
+                    .ok()
+                    .and_then(|r| r.url().map(|url| (name, url.to_string())))
+            })
+            .filter_map(|(name, url)| {
+                config
+                    .remote_mapping
+                    .get(&url)
+                    .map(|new_url| (name, url, new_url))
+            });
+
+        let mut any = false;
+        for (name, url, new_url) in swappable {
+            any = true;
+            println!("  - remote: {}", name);
+            println!("    - found url:  {}", url);
+            println!("    - changed to: {}", new_url);
+
+            if !config.dry_run {
+                repo.remote_set_url(name, new_url)?;
+            }
+        }
+        if !any {
+            println!("  - No remotes needed swapping")
+        }
+    }
+    Ok(())
 }
 
 #[allow(dead_code, unused_imports)]
